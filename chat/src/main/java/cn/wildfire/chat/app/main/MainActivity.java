@@ -223,6 +223,7 @@ public class MainActivity extends WfcBaseActivity implements ViewPager.OnPageCha
         contactListFragment = new ContactListFragment();
         DiscoveryFragment discoveryFragment = new DiscoveryFragment();
         MeFragment meFragment = new MeFragment();
+//        sca:  fragment 列表
         mFragmentList.add(conversationListFragment);
         mFragmentList.add(contactListFragment);
         mFragmentList.add(discoveryFragment);

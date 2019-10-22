@@ -29,6 +29,22 @@ public class SearchFragment extends Fragment {
     LinearLayout emptyLinearLayout;
     private SearchResultAdapter adapter;
     private SearchViewModel searchViewModel;
+//    sca:
+    /*
+    *
+    *
+   person -> person.getName();
+可以替换成
+
+Person::getName
+   *
+   * 表达式
+
+() -> new HashMap<>();
+可以替换成
+
+HashMap::new
+    * */
     private Observer<SearchResult> searchResultObserver = this::onSearchResult;
     private InputMethodManager inputManager;
 
