@@ -24,6 +24,9 @@ import cn.wildfirechat.model.GroupInfo;
 import cn.wildfirechat.model.UserInfo;
 import cn.wildfirechat.remote.ChatManager;
 
+/**
+ * 回话列表页， 还不是c2c页
+ */
 public class ConversationListFragment extends ProgressFragment {
     private RecyclerView recyclerView;
     private ConversationListAdapter adapter;

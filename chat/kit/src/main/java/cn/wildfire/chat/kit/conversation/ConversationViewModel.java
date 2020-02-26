@@ -43,6 +43,7 @@ public class ConversationViewModel extends ViewModel implements AppScopeViewMode
                 }
                 result.postValue(messages);
             } else {
+//                sca: 如果数据是空的从远程服务器获取数据
                 ChatManager.Instance().getRemoteMessages(conversation, fromMessageUid, count, new GetRemoteMessageCallback() {
                     @Override
                     public void onSuccess(List<Message> messages) {

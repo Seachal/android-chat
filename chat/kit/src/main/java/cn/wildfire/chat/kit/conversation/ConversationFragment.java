@@ -70,6 +70,10 @@ import cn.wildfirechat.model.UserInfo;
 import cn.wildfirechat.remote.ChatManager;
 import cn.wildfirechat.remote.UserSettingScope;
 
+
+/**
+ * 具体的聊天界面 c2c 群聊
+ */
 public class ConversationFragment extends Fragment implements
         KeyboardAwareLinearLayout.OnKeyboardShownListener,
         KeyboardAwareLinearLayout.OnKeyboardHiddenListener,
@@ -264,6 +268,7 @@ public class ConversationFragment extends Fragment implements
                 swipeRefreshLayout.setRefreshing(false);
                 return;
             }
+//            sca:加载旧消息数据
             loadMoreOldMessages();
         });
 
@@ -624,7 +629,7 @@ public class ConversationFragment extends Fragment implements
             fromMessageId = adapter.getItem(0).message.messageId;
             fromMessageUid = adapter.getItem(0).message.messageUid;
         }
-
+//sca conversation 交流信息，注意不是 message 信息；
         conversationViewModel.loadOldMessages(conversation, channelPrivateChatUser, fromMessageId, fromMessageUid, MESSAGE_LOAD_COUNT_PER_TIME)
                 .observe(this, uiMessages -> {
                     adapter.addMessagesAtHead(uiMessages);

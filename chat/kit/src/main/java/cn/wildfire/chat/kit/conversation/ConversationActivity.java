@@ -12,6 +12,10 @@ import cn.wildfirechat.chat.R;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.remote.ChatManager;
 
+
+/**
+ * 具体的c2c  聊天页,托管 {@link ConversationFragment}
+ */
 public class ConversationActivity extends WfcBaseActivity {
     private boolean isInitialized = false;
     private ConversationFragment conversationFragment;
