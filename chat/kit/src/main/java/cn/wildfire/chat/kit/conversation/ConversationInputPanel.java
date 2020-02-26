@@ -230,8 +230,8 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
             return;
         }
         if (rootLinearLayout.getCurrentInput() == extContainerFrameLayout) {
-            rootLinearLayout.showSoftkey(editText);
             hideConversationExtension();
+            rootLinearLayout.showSoftkey(editText);
         } else {
             emotionImageView.setImageResource(R.mipmap.ic_cheat_emo);
             showConversationExtension();
@@ -241,11 +241,12 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
     @OnClick(R.id.emotionImageView)
     void onEmotionImageViewClick() {
 
-        if (audioButton.getTag() != null) {
+        if (audioRecorderPanel.isShowingRecorder()) {
             return;
         }
         if (rootLinearLayout.getCurrentInput() == emotionContainerFrameLayout) {
             hideEmotionLayout();
+            rootLinearLayout.showSoftkey(editText);
         } else {
             hideAudioButton();
             showEmotionLayout();

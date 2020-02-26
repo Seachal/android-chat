@@ -124,9 +124,17 @@
         <activity
             android:name="cn.wildfire.chat.kit.mm.MMPreviewActivity"
             android:theme="@style/AppTheme.FullScreen" />
-        <activity android:name="cn.wildfire.chat.kit.voip.SingleVoipCallActivity">
+        <activity android:name="cn.wildfire.chat.kit.voip.SingleCallActivity">
             <intent-filter>
                 <action android:name="${applicationId}.kit.voip.single" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+        </activity>
+        <activity android:name="cn.wildfire.chat.kit.voip.MultiCallIncomingActivity"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="${applicationId}.kit.voip.multi" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
@@ -158,6 +166,15 @@
         <activity
             android:name="cn.wildfire.chat.kit.user.UserInfoActivity"
             android:label="用户信息" />
+        <activity
+            android:name="cn.wildfire.chat.kit.settings.PrivacySettingActivity"
+            android:label="隐私设置" />
+        <activity
+            android:name="cn.wildfire.chat.kit.settings.blacklist.BlacklistListActivity"
+            android:label="黑名单" />
+        <activity
+            android:name="cn.wildfire.chat.kit.settings.MessageNotifySettingActivity"
+            android:label="新消息通知" />
         <activity
             android:name="cn.wildfire.chat.kit.conversation.ConversationInfoActivity"
             android:label="会话详情" />
@@ -228,6 +245,8 @@
         <activity
             android:name="cn.wildfire.chat.kit.contact.pick.PickContactActivity"
             android:label="联系人选择" />
+        <activity android:name="cn.wildfire.chat.kit.voip.MultiCallActivity"
+            android:screenOrientation="portrait"/>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -238,6 +257,8 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
         </provider>
-        <service android:name="cn.wildfire.chat.kit.voip.FloatingVoipService" />
+
+        <service android:name="cn.wildfire.chat.kit.voip.SingleCallFloatingService" />
+        <service android:name="cn.wildfire.chat.kit.voip.MultiCallFloatingService" />
     </application>
 </manifest>

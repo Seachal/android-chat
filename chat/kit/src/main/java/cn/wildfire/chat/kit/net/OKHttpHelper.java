@@ -1,19 +1,33 @@
 package cn.wildfire.chat.kit.net;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import cn.wildfire.chat.app.AppService;
 import cn.wildfire.chat.kit.net.base.ResultWrapper;
 import cn.wildfire.chat.kit.net.base.StatusResult;
 import okhttp3.Call;
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -24,10 +38,50 @@ import okhttp3.Response;
  */
 
 public class OKHttpHelper {
+    private static final Map<String, List<Cookie>> cookieStore = new ConcurrentHashMap<>();
+
+    private static WeakReference<Context>  AppContext;
+    public static void init(Context context) {
+        AppContext = new WeakReference<>(context);
+    }
     private static OkHttpClient okHttpClient = new OkHttpClient.Builder()
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .cookieJar(new CookieJar() {
+                @Override
+                public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+                    cookieStore.put(url.host(), cookies);
+                    if (AppContext != null && AppContext.get() != null) {
+                        SharedPreferences sp = AppContext.get().getSharedPreferences("WFC_OK_HTTP_COOKIES", 0);
+                        Set<String>  set = new HashSet<>();
+                        for (Cookie k:cookies) {
+                            set.add(gson.toJson(k));
+                        }
+                        sp.edit().putStringSet(url.host(), set).apply();
+                    }
+                }
+
+                @Override
+                public List<Cookie> loadForRequest(HttpUrl url) {
+                    List<Cookie> cookies = cookieStore.get(url.host());
+                    if (cookies == null) {
+                        if (AppContext != null && AppContext.get() != null) {
+                            SharedPreferences sp = AppContext.get().getSharedPreferences("WFC_OK_HTTP_COOKIES", 0);
+                            Set<String>  set = sp.getStringSet(url.host(), new HashSet<>());
+                            cookies = new ArrayList<>();
+                            for (String s:set) {
+                                Cookie cookie = gson.fromJson(s, Cookie.class);
+                                cookies.add(cookie);
+                            }
+                            cookieStore.put(url.host(), cookies);
+                        }
+                    }
+
+                    return cookies;
+                }
+            })
             .build();
+
     private static Gson gson = new Gson();
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
@@ -62,7 +116,7 @@ public class OKHttpHelper {
 
     }
 
-    public static <T> void post(final String url, Map<String, String> param, final Callback<T> callback) {
+    public static <T> void post(final String url, Map<String, Object> param, final Callback<T> callback) {
         RequestBody body = RequestBody.create(JSON, gson.toJson(param));
         final Request request = new Request.Builder()
                 .url(url)
@@ -108,6 +162,39 @@ public class OKHttpHelper {
         });
     }
 
+    public static <T> void upload(String url, Map<String, String> params, File file, MediaType mediaType, final Callback<T> callback) {
+        MultipartBody.Builder builder = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", file.getName(),
+                        RequestBody.create(mediaType, file));
+
+        if (params != null) {
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                builder.addFormDataPart(entry.getKey(), entry.getValue());
+            }
+        }
+
+        RequestBody requestBody = builder.build();
+
+        Request request = new Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build();
+        okHttpClient.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) {
+                    callback.onFailure(-1, e.getMessage());
+                }
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                handleResponse(url, call, response, callback);
+            }
+        });
+    }
+
     private static <T> void handleResponse(String url, Call call, okhttp3.Response response, Callback<T> callback) {
         if (callback != null) {
             if (!response.isSuccessful()) {
@@ -123,6 +210,21 @@ public class OKHttpHelper {
                 Type[] types = callback.getClass().getGenericInterfaces();
                 type = ((ParameterizedType) types[0]).getActualTypeArguments()[0];
             }
+
+            if (type.equals(Void.class)) {
+                callback.onSuccess((T) null);
+                return;
+            }
+
+            if (type.equals(String.class)) {
+                try {
+                    callback.onSuccess((T) response.body().string());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+
 
             try {
                 StatusResult statusResult;

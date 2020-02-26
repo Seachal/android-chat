@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.afollestad.materialdialogs.MaterialDialog;
@@ -45,37 +47,38 @@ public class GroupInfoActivity extends WfcBaseActivity {
         groupId = intent.getStringExtra("groupId");
         groupViewModel = ViewModelProviders.of(this).get(GroupViewModel.class);
 
-        groupInfo = groupViewModel.getGroupInfo(groupId, true);
-        if (groupInfo == null) {
-            groupViewModel.groupInfoUpdateLiveData().observe(this, groupInfos -> {
-                for (GroupInfo info : groupInfos) {
-                    if (info.target.equals(groupId)) {
-                        this.groupInfo = info;
-                        showGroupInfo(info);
-                        dismissLoading();
-                    }
+        groupViewModel.groupInfoUpdateLiveData().observe(this, groupInfos -> {
+            for (GroupInfo info : groupInfos) {
+                if (info.target.equals(groupId)) {
+                    this.groupInfo = info;
+                    showGroupInfo(info);
                 }
-            });
-        } else {
-            showGroupInfo(groupInfo);
-        }
-        List<GroupMember> groupMembers = groupViewModel.getGroupMembers(groupId, true);
+            }
+        });
+
+
+        groupInfo = groupViewModel.getGroupInfo(groupId, true);
+
         UserViewModel userViewModel =ViewModelProviders.of(this).get(UserViewModel.class);
         userId = userViewModel.getUserId();
+
+        groupViewModel.groupMembersUpdateLiveData().observe(this, members -> {
+            if (members.get(0).groupId.equals(groupId)) {
+                List<GroupMember> gMembers = groupViewModel.getGroupMembers(groupId, false);
+                for (GroupMember member : gMembers) {
+                    if (member.type != GroupMember.GroupMemberType.Removed && member.memberId.equals(userId)) {
+                        this.isJoined = true;
+                    }
+                }
+                dismissLoading();
+                updateActionButtonStatus();
+            }
+        });
+
+        List<GroupMember> groupMembers = groupViewModel.getGroupMembers(groupId, true);
         if (groupMembers == null || groupMembers.isEmpty()) {
             showLoading();
-            groupViewModel.groupMembersUpdateLiveData().observe(this, members -> {
-                if (members.get(0).groupId.equals(groupId)) {
-                    List<GroupMember> gMembers = groupViewModel.getGroupMembers(groupId, false);
-                    for (GroupMember member : gMembers) {
-                        if (member.type != GroupMember.GroupMemberType.Removed && member.memberId.equals(userId)) {
-                            this.isJoined = true;
-                        }
-                    }
-                    dismissLoading();
-                    updateActionButtonStatus();
-                }
-            });
+
         } else {
             for (GroupMember member : groupMembers) {
                 if (member.type != GroupMember.GroupMemberType.Removed && member.memberId.equals(userId)) {
@@ -139,7 +142,18 @@ public class GroupInfoActivity extends WfcBaseActivity {
             startActivity(intent);
             finish();
         } else {
-            groupViewModel.addGroupMember(groupInfo, Collections.singletonList(userId));
+            groupViewModel.addGroupMember(groupInfo, Collections.singletonList(userId), null, Collections.singletonList(0)).observe(this, new Observer<Boolean>() {
+                @Override
+                public void onChanged(Boolean aBoolean) {
+                    if (aBoolean) {
+                        Intent intent = ConversationActivity.buildConversationIntent(GroupInfoActivity.this, Conversation.ConversationType.Group, groupId, 0);
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        Toast.makeText(GroupInfoActivity.this, R.string.add_member_fail, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
         }
     }
 }

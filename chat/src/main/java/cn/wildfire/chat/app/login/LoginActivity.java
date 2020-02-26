@@ -11,19 +11,14 @@ import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import butterknife.BindView;
 import butterknife.OnClick;
 import butterknife.OnTextChanged;
-import cn.wildfire.chat.app.Config;
+import cn.wildfire.chat.app.AppService;
 import cn.wildfire.chat.app.login.model.LoginResult;
 import cn.wildfire.chat.app.main.MainActivity;
 import cn.wildfire.chat.kit.ChatManagerHolder;
 import cn.wildfire.chat.kit.WfcBaseActivity;
-import cn.wildfire.chat.kit.net.OKHttpHelper;
-import cn.wildfire.chat.kit.net.SimpleCallback;
 import cn.wildfirechat.chat.R;
 
 /**
@@ -69,20 +64,9 @@ public class LoginActivity extends WfcBaseActivity {
 
     @OnClick(R.id.loginButton)
     void login() {
+
         String account = accountEditText.getText().toString().trim();
         String password = passwordEditText.getText().toString().trim();
-
-        String url = Config.APP_SERVER_ADDRESS + "/api/login";
-        Map<String, String> params = new HashMap<>();
-        params.put("name", account);
-        params.put("password", password);
-        try {
-            params.put("clientId", ChatManagerHolder.gChatManager.getClientId());
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(LoginActivity.this, "网络出来问题了。。。", Toast.LENGTH_SHORT).show();
-            return;
-        }
 
         MaterialDialog dialog = new MaterialDialog.Builder(this)
                 .content("登录中...")
@@ -90,12 +74,15 @@ public class LoginActivity extends WfcBaseActivity {
                 .cancelable(false)
                 .build();
         dialog.show();
-        OKHttpHelper.post(url, params, new SimpleCallback<LoginResult>() {
+
+        AppService.Instance().namePwdLogin(account, password, new AppService.LoginCallback() {
             @Override
             public void onUiSuccess(LoginResult loginResult) {
                 if (isFinishing()) {
                     return;
                 }
+
+                //需要注意token跟clientId是强依赖的，一定要调用getClientId获取到clientId，然后用这个clientId获取token，这样connect才能成功，如果随便使用一个clientId获取到的token将无法链接成功。
                 ChatManagerHolder.gChatManager.connect(loginResult.getUserId(), loginResult.getToken());
                 SharedPreferences sp = getSharedPreferences("config", Context.MODE_PRIVATE);
                 sp.edit()
@@ -115,7 +102,10 @@ public class LoginActivity extends WfcBaseActivity {
                     return;
                 }
                 dialog.dismiss();
+
+                Toast.makeText(LoginActivity.this, "网络出问题了:" + code + " " + msg, Toast.LENGTH_SHORT).show();
             }
         });
+
     }
 }

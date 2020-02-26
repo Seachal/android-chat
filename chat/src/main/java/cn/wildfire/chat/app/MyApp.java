@@ -16,19 +16,21 @@ import cn.wildfirechat.push.PushService;
 
 public class MyApp extends BaseApp {
 
-    private WfcUIKit wfcUIKit;
-
     @Override
     public void onCreate() {
         super.onCreate();
         Config.validateConfig();
 
         // bugly，务必替换为你自己的!!!
+        if ("wildfirechat.cn".equals(Config.IM_SERVER_HOST)) {
         CrashReport.initCrashReport(getApplicationContext(), "335f86ba77", false);
+            CrashReport.initCrashReport(getApplicationContext(), Config.BUGLY_ID, false);
+        }
         // 只在主进程初始化
         if (getCurProcessName(this).equals(BuildConfig.APPLICATION_ID)) {
-            wfcUIKit = new WfcUIKit();
+            WfcUIKit wfcUIKit = WfcUIKit.getWfcUIKit();
             wfcUIKit.init(this);
+            wfcUIKit.setAppServiceProvider(AppService.Instance());
             PushService.init(this, BuildConfig.APPLICATION_ID);
             MessageViewHolderManager.getInstance().registerMessageViewHolder(LocationMessageContentViewHolder.class);
             setupWFCDirs();

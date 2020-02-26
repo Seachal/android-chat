@@ -130,7 +130,7 @@ public class UserInfoFragment extends Fragment {
 
     private void setUserInfo(UserInfo userInfo) {
         Glide.with(this).load(userInfo.portrait).apply(new RequestOptions().placeholder(R.mipmap.avatar_def).centerCrop()).into(portraitImageView);
-        nameTextView.setText(userInfo.name);
+        nameTextView.setText("野火ID" + userInfo.name);
         nameTextView.setVisibility(View.GONE);
         nickyNameTextView.setText(userViewModel.getUserDisplayName(userInfo));
         if (ChatManager.Instance().isMyFriend(userInfo.uid)) {
@@ -150,7 +150,7 @@ public class UserInfoFragment extends Fragment {
 
     @OnClick(R.id.voipChatButton)
     void voipChat() {
-        WfcUIKit.onCall(getActivity(), userInfo.uid, true, false);
+        WfcUIKit.singleCall(getActivity(), userInfo.uid, false);
     }
 
     @OnClick(R.id.aliasOptionItemView)
