@@ -9,13 +9,13 @@ android {
             storePassword 'wildfirechat'
         }
     }
-    compileSdkVersion 28
+    compileSdkVersion 29
     aaptOptions.cruncherEnabled = false
     aaptOptions.useNewCruncher = false
     defaultConfig {
         applicationId "cn.wildfirechat.chat"
-        minSdkVersion 16
-        targetSdkVersion 28 //当targetversion大于23时，需要使用fileprovider
+        minSdkVersion 17
+        targetSdkVersion 29 //当targetversion大于23时，需要使用fileprovider
         versionCode 24
         versionName "0.7.0"
         multiDexEnabled true
@@ -59,6 +59,11 @@ android {
             assets.srcDirs += ['kit/src/main/assets']
             java.srcDirs += ['kit/src/main/java']
             // wfc kit end
+
+            // moment start
+//            java.srcDirs += ['../../android-momentkit/src/main/java']
+//            res.srcDirs += ['../../android-momentkit/src/main/res-moment']
+            // moment end
         }
     }
     productFlavors {
@@ -101,17 +106,27 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.8.5'
 
     // ViewModel and LiveData
-    def lifecycle_version = '2.2.0-alpha05'
+    def lifecycle_version = '2.2.0'
     implementation "androidx.lifecycle:lifecycle-extensions:$lifecycle_version"
 
     implementation project(':client')
     implementation project(':avenginekit')
     implementation project(':emojilibrary')
     implementation project(':imagepicker')
+//    implementation project(':momentclient')
 
     implementation 'com.king.zxing:zxing-lite:1.1.1'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.0.0'
     implementation 'androidx.gridlayout:gridlayout:1.0.0'
     implementation 'com.google.android:flexbox:2.0.1'
     // kit wfc end
+
+
+    // moment start
+    //over scroller helper
+//    api 'me.everything:overscroll-decor-android:1.0.4'
+    // moment end
+
 }
+
+apply plugin: 'com.huawei.agconnect'

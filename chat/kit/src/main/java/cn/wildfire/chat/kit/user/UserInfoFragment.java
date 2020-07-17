@@ -18,6 +18,8 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.CenterCrop;
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
 import com.bumptech.glide.request.RequestOptions;
 import com.lqr.imagepicker.ImagePicker;
 import com.lqr.imagepicker.bean.ImageItem;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+import cn.wildfire.chat.app.WfcIntent;
 import cn.wildfire.chat.kit.WfcScheme;
 import cn.wildfire.chat.kit.WfcUIKit;
 import cn.wildfire.chat.kit.common.OperateResult;
@@ -35,25 +38,23 @@ import cn.wildfire.chat.kit.contact.newfriend.InviteFriendActivity;
 import cn.wildfire.chat.kit.conversation.ConversationActivity;
 import cn.wildfire.chat.kit.qrcode.QRCodeActivity;
 import cn.wildfire.chat.kit.third.utils.ImageUtils;
+import cn.wildfire.chat.kit.third.utils.UIUtils;
 import cn.wildfire.chat.kit.widget.OptionItemView;
 import cn.wildfirechat.chat.R;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.model.UserInfo;
-import cn.wildfirechat.remote.ChatManager;
 
 public class UserInfoFragment extends Fragment {
     @BindView(R.id.portraitImageView)
     ImageView portraitImageView;
     @BindView(R.id.nameTextView)
     TextView nameTextView;
-    @BindView(R.id.mobileTextView)
-    TextView mobileTextView;
-    @BindView(R.id.nickyName)
-    TextView nickyNameTextView;
+    @BindView(R.id.accountTextView)
+    TextView accountTextView;
     @BindView(R.id.chatButton)
-    Button chatButton;
+    View chatButton;
     @BindView(R.id.voipChatButton)
-    Button voipChatButton;
+    View voipChatButton;
     @BindView(R.id.inviteButton)
     Button inviteButton;
     @BindView(R.id.aliasOptionItemView)
@@ -61,6 +62,9 @@ public class UserInfoFragment extends Fragment {
 
     @BindView(R.id.qrCodeOptionItemView)
     OptionItemView qrCodeOptionItemView;
+
+    @BindView(R.id.momentButton)
+    View momentButton;
 
     private UserInfo userInfo;
     private UserViewModel userViewModel;
@@ -109,6 +113,7 @@ public class UserInfoFragment extends Fragment {
             inviteButton.setVisibility(View.GONE);
         } else {
             // stranger
+            momentButton.setVisibility(View.GONE);
             chatButton.setVisibility(View.GONE);
             voipChatButton.setVisibility(View.GONE);
             inviteButton.setVisibility(View.VISIBLE);
@@ -126,17 +131,22 @@ public class UserInfoFragment extends Fragment {
             }
         });
         userViewModel.getUserInfo(userInfo.uid, true);
+
+        if (!WfcUIKit.getWfcUIKit().isSupportMoment()) {
+            momentButton.setVisibility(View.GONE);
+        }
     }
 
     private void setUserInfo(UserInfo userInfo) {
-        Glide.with(this).load(userInfo.portrait).apply(new RequestOptions().placeholder(R.mipmap.avatar_def).centerCrop()).into(portraitImageView);
-        nameTextView.setText("野火ID" + userInfo.name);
-        nameTextView.setVisibility(View.GONE);
-        nickyNameTextView.setText(userViewModel.getUserDisplayName(userInfo));
-        if (ChatManager.Instance().isMyFriend(userInfo.uid)) {
-            mobileTextView.setText("电话:" + userInfo.mobile);
-            mobileTextView.setVisibility(View.VISIBLE);
-        }
+        RequestOptions requestOptions = new RequestOptions()
+            .placeholder(UIUtils.getRoundedDrawable(R.mipmap.avatar_def, 10))
+            .transforms(new CenterCrop(), new RoundedCorners(UIUtils.dip2Px(10)));
+        Glide.with(this)
+            .load(userInfo.portrait)
+            .apply(requestOptions)
+            .into(portraitImageView);
+        nameTextView.setText(userViewModel.getUserDisplayName(userInfo));
+        accountTextView.setText("野火ID:" + userInfo.name);
     }
 
     @OnClick(R.id.chatButton)
@@ -146,6 +156,13 @@ public class UserInfoFragment extends Fragment {
         intent.putExtra("conversation", conversation);
         startActivity(intent);
         getActivity().finish();
+    }
+
+    @OnClick(R.id.momentButton)
+    void moment() {
+        Intent intent = new Intent(WfcIntent.ACTION_MOMENT);
+        intent.putExtra("userInfo", userInfo);
+        startActivity(intent);
     }
 
     @OnClick(R.id.voipChatButton)

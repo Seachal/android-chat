@@ -20,6 +20,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
@@ -36,6 +37,7 @@ import java.util.Map;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnTouch;
+import cn.wildfire.chat.app.Config;
 import cn.wildfire.chat.kit.ChatManagerHolder;
 import cn.wildfire.chat.kit.WfcUIKit;
 import cn.wildfire.chat.kit.channel.ChannelViewModel;
@@ -57,6 +59,7 @@ import cn.wildfire.chat.kit.widget.InputAwareLayout;
 import cn.wildfire.chat.kit.widget.KeyboardAwareLinearLayout;
 import cn.wildfirechat.avenginekit.AVEngineKit;
 import cn.wildfirechat.chat.R;
+import cn.wildfirechat.message.Message;
 import cn.wildfirechat.message.MessageContent;
 import cn.wildfirechat.message.TypingMessageContent;
 import cn.wildfirechat.message.core.MessageDirection;
@@ -76,12 +79,12 @@ import cn.wildfirechat.remote.UserSettingScope;
  * 具体的聊天界面 c2c 群聊
  */
 public class ConversationFragment extends Fragment implements
-        KeyboardAwareLinearLayout.OnKeyboardShownListener,
-        KeyboardAwareLinearLayout.OnKeyboardHiddenListener,
-        ConversationMessageAdapter.OnPortraitClickListener,
-        ConversationMessageAdapter.OnPortraitLongClickListener,
-        ConversationInputPanel.OnConversationInputPanelStateChangeListener,
-        ConversationMessageAdapter.OnMessageCheckListener {
+    KeyboardAwareLinearLayout.OnKeyboardShownListener,
+    KeyboardAwareLinearLayout.OnKeyboardHiddenListener,
+    ConversationMessageAdapter.OnPortraitClickListener,
+    ConversationMessageAdapter.OnPortraitLongClickListener,
+    ConversationInputPanel.OnConversationInputPanelStateChangeListener,
+    ConversationMessageAdapter.OnMessageCheckListener, ConversationMessageAdapter.OnMessageReceiptClickListener {
 
     public static final int REQUEST_PICK_MENTION_CONTACT = 100;
     public static final int REQUEST_CODE_GROUP_VIDEO_CHAT = 101;
@@ -149,13 +152,13 @@ public class ConversationFragment extends Fragment implements
                 if (moveToBottom || uiMessage.message.sender.equals(ChatManager.Instance().getUserId())) {
                     UIUtils.postTaskDelay(() -> {
 
-                                int position = adapter.getItemCount() - 1;
-                                if (position < 0) {
-                                    return;
-                                }
-                                recyclerView.scrollToPosition(position);
-                            },
-                            100);
+                            int position = adapter.getItemCount() - 1;
+                            if (position < 0) {
+                                return;
+                            }
+                            recyclerView.scrollToPosition(position);
+                        },
+                        100);
                 }
             }
             if (content instanceof TypingMessageContent && uiMessage.message.direction == MessageDirection.Receive) {
@@ -164,7 +167,7 @@ public class ConversationFragment extends Fragment implements
                 resetConversationTitle();
             }
 
-            if (uiMessage.message.direction == MessageDirection.Receive) {
+            if (getLifecycle().getCurrentState() == Lifecycle.State.RESUMED && uiMessage.message.direction == MessageDirection.Receive) {
                 conversationViewModel.clearUnreadStatus(conversation);
             }
         }
@@ -184,10 +187,11 @@ public class ConversationFragment extends Fragment implements
     private Observer<UiMessage> messageRemovedLiveDataObserver = new Observer<UiMessage>() {
         @Override
         public void onChanged(@Nullable UiMessage uiMessage) {
-            if (!isMessageInCurrentConversation(uiMessage)) {
+            // 当通过server api删除消息时，只知道消息的uid
+            if (uiMessage.message.conversation != null && !isMessageInCurrentConversation(uiMessage)) {
                 return;
             }
-            if (isDisplayableMessage(uiMessage)) {
+            if (uiMessage.message.messageId == 0 || isDisplayableMessage(uiMessage)) {
                 adapter.removeMessage(uiMessage);
             }
         }
@@ -196,7 +200,7 @@ public class ConversationFragment extends Fragment implements
     private boolean isDisplayableMessage(UiMessage uiMessage) {
         MessageContent content = uiMessage.message.content;
         if (content.getPersistFlag() == PersistFlag.Persist
-                || content.getPersistFlag() == PersistFlag.Persist_And_Count) {
+            || content.getPersistFlag() == PersistFlag.Persist_And_Count) {
             return true;
         }
         return false;
@@ -208,8 +212,8 @@ public class ConversationFragment extends Fragment implements
             SharedPreferences sharedPreferences = getActivity().getSharedPreferences("sticker", Context.MODE_PRIVATE);
             for (Map.Entry<String, String> entry : stringStringMap.entrySet()) {
                 sharedPreferences.edit()
-                        .putString(entry.getKey(), entry.getValue())
-                        .apply();
+                    .putString(entry.getKey(), entry.getValue())
+                    .apply();
             }
 
         }
@@ -270,17 +274,9 @@ public class ConversationFragment extends Fragment implements
             }
         };
 
-        settingUpdateLiveDataObserver = o -> {
-            boolean show = "1".equals(userViewModel.getUserSetting(UserSettingScope.GroupHideNickname, groupInfo.target));
-            if (showGroupMemberName != show) {
-                showGroupMemberName = show;
-                adapter.notifyDataSetChanged();
-            }
-        };
 
         groupViewModel.groupInfoUpdateLiveData().observeForever(groupInfosUpdateLiveDataObserver);
         groupViewModel.groupMembersUpdateLiveData().observeForever(groupMembersUpdateLiveDataObserver);
-        settingViewModel.settingUpdatedLiveData().observeForever(settingUpdateLiveDataObserver);
     }
 
     private void unInitGroupObservers() {
@@ -289,7 +285,6 @@ public class ConversationFragment extends Fragment implements
         }
         groupViewModel.groupInfoUpdateLiveData().removeObserver(groupInfosUpdateLiveDataObserver);
         groupViewModel.groupMembersUpdateLiveData().removeObserver(groupMembersUpdateLiveDataObserver);
-        settingViewModel.settingUpdatedLiveData().removeObserver(settingUpdateLiveDataObserver);
     }
 
     private boolean isMessageInCurrentConversation(UiMessage message) {
@@ -311,6 +306,14 @@ public class ConversationFragment extends Fragment implements
         ButterKnife.bind(this, view);
         initView();
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (conversationViewModel != null && conversation != null) {
+            conversationViewModel.clearUnreadStatus(conversation);
+        }
     }
 
     public void setupConversation(Conversation conversation, String title, long focusMessageId, String target) {
@@ -337,6 +340,7 @@ public class ConversationFragment extends Fragment implements
         // message list
         adapter = new ConversationMessageAdapter(this);
         adapter.setOnPortraitClickListener(this);
+        adapter.setOnMessageReceiptClickListener(this);
         adapter.setOnPortraitLongClickListener(this);
         adapter.setOnMessageCheckListener(this);
         layoutManager = new LinearLayoutManager(getActivity());
@@ -378,8 +382,31 @@ public class ConversationFragment extends Fragment implements
         messageViewModel.messageRemovedLiveData().observeForever(messageRemovedLiveDataObserver);
         messageViewModel.mediaUpdateLiveData().observeForever(mediaUploadedLiveDataObserver);
 
+        messageViewModel.messageDeliverLiveData().observe(getActivity(), stringLongMap -> {
+            Map<String, Long> deliveries = ChatManager.Instance().getMessageDelivery(conversation);
+            adapter.setDeliveries(deliveries);
+        });
+
+        messageViewModel.messageReadLiveData().observe(getActivity(), readEntries -> {
+            Map<String, Long> convReadEntities = ChatManager.Instance().getConversationRead(conversation);
+            adapter.setReadEntries(convReadEntities);
+        });
+
         userViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
         userViewModel.userInfoLiveData().observeForever(userInfoUpdateLiveDataObserver);
+
+        settingUpdateLiveDataObserver = o -> {
+            if(groupInfo == null){
+               return;
+            }
+            boolean show = "1".equals(userViewModel.getUserSetting(UserSettingScope.GroupHideNickname, groupInfo.target));
+            if (showGroupMemberName != show) {
+                showGroupMemberName = show;
+                adapter.notifyDataSetChanged();
+            }
+            reloadMessage();
+        };
+        settingViewModel.settingUpdatedLiveData().observeForever(settingUpdateLiveDataObserver);
     }
 
     private void setupConversation(Conversation conversation) {
@@ -398,36 +425,40 @@ public class ConversationFragment extends Fragment implements
 
         inputPanel.setupConversation(conversation);
 
-        MutableLiveData<List<UiMessage>> messages;
-        if (initialFocusedMessageId != -1) {
-            shouldContinueLoadNewMessage = true;
-            messages = conversationViewModel.loadAroundMessages(conversation, channelPrivateChatUser, initialFocusedMessageId, MESSAGE_LOAD_AROUND);
-        } else {
-            messages = conversationViewModel.getMessages(conversation, channelPrivateChatUser);
-        }
+        if (conversation.type != Conversation.ConversationType.ChatRoom) {
 
-        // load message
-        swipeRefreshLayout.setRefreshing(true);
-        messages.observe(this, uiMessages -> {
-            swipeRefreshLayout.setRefreshing(false);
-            adapter.setMessages(uiMessages);
-            adapter.notifyDataSetChanged();
-
-            if (adapter.getItemCount() > 1) {
-                int initialMessagePosition;
-                if (initialFocusedMessageId != -1) {
-                    initialMessagePosition = adapter.getMessagePosition(initialFocusedMessageId);
-                    if (initialMessagePosition != -1) {
-                        recyclerView.scrollToPosition(initialMessagePosition);
-                        adapter.highlightFocusMessage(initialMessagePosition);
-                    }
-                } else {
-                    moveToBottom = true;
-                    recyclerView.scrollToPosition(adapter.getItemCount() - 1);
-                }
+            MutableLiveData<List<UiMessage>> messages;
+            if (initialFocusedMessageId != -1) {
+                shouldContinueLoadNewMessage = true;
+                messages = conversationViewModel.loadAroundMessages(conversation, channelPrivateChatUser, initialFocusedMessageId, MESSAGE_LOAD_AROUND);
+            } else {
+                messages = conversationViewModel.getMessages(conversation, channelPrivateChatUser);
             }
-        });
-        if (conversation.type == Conversation.ConversationType.ChatRoom) {
+
+            // load message
+            swipeRefreshLayout.setRefreshing(true);
+            adapter.setDeliveries(ChatManager.Instance().getMessageDelivery(conversation));
+            adapter.setReadEntries(ChatManager.Instance().getConversationRead(conversation));
+            messages.observe(this, uiMessages -> {
+                swipeRefreshLayout.setRefreshing(false);
+                adapter.setMessages(uiMessages);
+                adapter.notifyDataSetChanged();
+
+                if (adapter.getItemCount() > 1) {
+                    int initialMessagePosition;
+                    if (initialFocusedMessageId != -1) {
+                        initialMessagePosition = adapter.getMessagePosition(initialFocusedMessageId);
+                        if (initialMessagePosition != -1) {
+                            recyclerView.scrollToPosition(initialMessagePosition);
+                            adapter.highlightFocusMessage(initialMessagePosition);
+                        }
+                    } else {
+                        moveToBottom = true;
+                        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+                    }
+                }
+            });
+        } else {
             joinChatRoom();
         }
 
@@ -452,29 +483,30 @@ public class ConversationFragment extends Fragment implements
     private void joinChatRoom() {
         chatRoomViewModel = ViewModelProviders.of(this).get(ChatRoomViewModel.class);
         chatRoomViewModel.joinChatRoom(conversation.target)
-                .observe(this, new Observer<OperateResult<Boolean>>() {
-                    @Override
-                    public void onChanged(@Nullable OperateResult<Boolean> booleanOperateResult) {
-                        if (booleanOperateResult.isSuccess()) {
-                            String welcome = "欢迎 %s 加入聊天室";
-                            TipNotificationContent content = new TipNotificationContent();
-                            String userId = userViewModel.getUserId();
-                            UserInfo userInfo = userViewModel.getUserInfo(userId, false);
-                            if (userInfo != null) {
-                                content.tip = String.format(welcome, userViewModel.getUserDisplayName(userInfo));
-                            } else {
-                                content.tip = String.format(welcome, "<" + userId + ">");
-                            }
-                            messageViewModel.sendMessage(conversation, content);
-                            loadMoreOldMessages();
-                            setChatRoomConversationTitle();
-
+            .observe(this, new Observer<OperateResult<Boolean>>() {
+                @Override
+                public void onChanged(@Nullable OperateResult<Boolean> booleanOperateResult) {
+                    if (booleanOperateResult.isSuccess()) {
+                        String welcome = "欢迎 %s 加入聊天室";
+                        TipNotificationContent content = new TipNotificationContent();
+                        String userId = userViewModel.getUserId();
+                        UserInfo userInfo = userViewModel.getUserInfo(userId, false);
+                        if (userInfo != null) {
+                            content.tip = String.format(welcome, userViewModel.getUserDisplayName(userInfo));
                         } else {
-                            Toast.makeText(getActivity(), "加入聊天室失败", Toast.LENGTH_SHORT).show();
-                            getActivity().finish();
+                            content.tip = String.format(welcome, "<" + userId + ">");
                         }
+                        handler.postDelayed(() -> {
+                            messageViewModel.sendMessage(conversation, content);
+                        }, 1000);
+                        setChatRoomConversationTitle();
+
+                    } else {
+                        Toast.makeText(getActivity(), "加入聊天室失败", Toast.LENGTH_SHORT).show();
+                        getActivity().finish();
                     }
-                });
+                }
+            });
     }
 
     private void quitChatRoom() {
@@ -493,13 +525,13 @@ public class ConversationFragment extends Fragment implements
 
     private void setChatRoomConversationTitle() {
         chatRoomViewModel.getChatRoomInfo(conversation.target, System.currentTimeMillis())
-                .observe(this, chatRoomInfoOperateResult -> {
-                    if (chatRoomInfoOperateResult.isSuccess()) {
-                        ChatRoomInfo chatRoomInfo = chatRoomInfoOperateResult.getResult();
-                        conversationTitle = chatRoomInfo.title;
-                        setActivityTitle(conversationTitle);
-                    }
-                });
+            .observe(this, chatRoomInfoOperateResult -> {
+                if (chatRoomInfoOperateResult.isSuccess()) {
+                    ChatRoomInfo chatRoomInfo = chatRoomInfoOperateResult.getResult();
+                    conversationTitle = chatRoomInfo.title;
+                    setActivityTitle(conversationTitle);
+                }
+            });
     }
 
     private void setTitle() {
@@ -542,9 +574,10 @@ public class ConversationFragment extends Fragment implements
 
     @OnTouch({R.id.contentLayout, R.id.msgRecyclerView})
     boolean onTouch(View view, MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN && inputPanel.extension.canHideOnScroll()) {
-            inputPanel.collapse();
-        }
+//        if (event.getAction() == MotionEvent.ACTION_DOWN && inputPanel.extension.canHideOnScroll()) {
+//            inputPanel.collapse();
+//        }
+        inputPanel.closeConversationInputPanel();
         return false;
     }
 
@@ -567,9 +600,11 @@ public class ConversationFragment extends Fragment implements
                 return;
             }
         }
-        Intent intent = new Intent(getActivity(), UserInfoActivity.class);
-        intent.putExtra("userInfo", userInfo);
-        startActivity(intent);
+        if (userInfo.deleted ==0) {
+            Intent intent = new Intent(getActivity(), UserInfoActivity.class);
+            intent.putExtra("userInfo", userInfo);
+            startActivity(intent);
+        }
     }
 
     @Override
@@ -648,6 +683,7 @@ public class ConversationFragment extends Fragment implements
         messageViewModel.mediaUpdateLiveData().removeObserver(mediaUploadedLiveDataObserver);
         userViewModel.userInfoLiveData().removeObserver(userInfoUpdateLiveDataObserver);
         conversationViewModel.clearConversationMessageLiveData().removeObserver(clearConversationMessageObserver);
+        settingViewModel.settingUpdatedLiveData().removeObserver(settingUpdateLiveDataObserver);
 
         unInitGroupObservers();
         inputPanel.onDestroy();
@@ -657,7 +693,7 @@ public class ConversationFragment extends Fragment implements
         boolean consumed = true;
         if (rootLinearLayout.getCurrentInput() != null) {
             rootLinearLayout.hideAttachedInput(true);
-            inputPanel.collapse();
+            inputPanel.closeConversationInputPanel();
         } else if (multiMessageActionContainerLinearLayout.getVisibility() == View.VISIBLE) {
             toggleConversationMode();
         } else {
@@ -693,28 +729,28 @@ public class ConversationFragment extends Fragment implements
         }
 //sca conversation 交流信息，注意不是 message 信息；
         conversationViewModel.loadOldMessages(conversation, channelPrivateChatUser, fromMessageId, fromMessageUid, MESSAGE_LOAD_COUNT_PER_TIME)
-                .observe(this, uiMessages -> {
-                    adapter.addMessagesAtHead(uiMessages);
+            .observe(this, uiMessages -> {
+                adapter.addMessagesAtHead(uiMessages);
 
-                    swipeRefreshLayout.setRefreshing(false);
-                });
+                swipeRefreshLayout.setRefreshing(false);
+            });
     }
 
     private void loadMoreNewMessages() {
         loadingNewMessage = true;
         adapter.showLoadingNewMessageProgressBar();
         conversationViewModel.loadNewMessages(conversation, channelPrivateChatUser, adapter.getItem(adapter.getItemCount() - 2).message.messageId, MESSAGE_LOAD_COUNT_PER_TIME)
-                .observe(this, messages -> {
-                    loadingNewMessage = false;
-                    adapter.dismissLoadingNewMessageProgressBar();
+            .observe(this, messages -> {
+                loadingNewMessage = false;
+                adapter.dismissLoadingNewMessageProgressBar();
 
-                    if (messages == null || messages.isEmpty()) {
-                        shouldContinueLoadNewMessage = false;
-                    }
-                    if (messages != null && !messages.isEmpty()) {
-                        adapter.addMessagesAtTail(messages);
-                    }
-                });
+                if (messages == null || messages.isEmpty()) {
+                    shouldContinueLoadNewMessage = false;
+                }
+                if (messages != null && !messages.isEmpty()) {
+                    adapter.addMessagesAtTail(messages);
+                }
+            });
     }
 
     private void updateTypingStatusTitle(TypingMessageContent typingMessageContent) {
@@ -782,6 +818,10 @@ public class ConversationFragment extends Fragment implements
         adapter.notifyDataSetChanged();
     }
 
+    public void setInputText(String text) {
+        inputPanel.setInputText(text);
+    }
+
     private void setupMultiMessageAction() {
         multiMessageActionContainerLinearLayout.removeAllViews();
         List<MultiMessageAction> actions = MultiMessageActionManager.getInstance().getConversationActions(conversation);
@@ -799,14 +839,14 @@ public class ConversationFragment extends Fragment implements
                 List<UiMessage> checkedMessages = adapter.getCheckedMessages();
                 if (action.confirm()) {
                     new MaterialDialog.Builder(getActivity()).content(action.confirmPrompt())
-                            .negativeText("取消")
-                            .positiveText("确认")
-                            .onPositive((dialog, which) -> {
-                                action.onClick(checkedMessages);
-                                toggleConversationMode();
-                            })
-                            .build()
-                            .show();
+                        .negativeText("取消")
+                        .positiveText("确认")
+                        .onPositive((dialog, which) -> {
+                            action.onClick(checkedMessages);
+                            toggleConversationMode();
+                        })
+                        .build()
+                        .show();
 
                 } else {
                     action.onClick(checkedMessages);
@@ -837,7 +877,7 @@ public class ConversationFragment extends Fragment implements
         Intent intent = new Intent(getActivity(), PickGroupMemberActivity.class);
         GroupInfo groupInfo = groupViewModel.getGroupInfo(conversation.target, false);
         intent.putExtra("groupInfo", groupInfo);
-        int maxCount = AVEngineKit.isSupportMultiCall() ? (isAudioOnly ? 9 : 4) : 1;
+        int maxCount = AVEngineKit.isSupportMultiCall() ? (isAudioOnly ? Config.MAX_AUDIO_PARTICIPANT_COUNT - 1 : Config.MAX_VIDEO_PARTICIPANT_COUNT - 1) : 1;
         intent.putExtra("maxCount", maxCount);
         startActivityForResult(intent, isAudioOnly ? REQUEST_CODE_GROUP_AUDIO_CHAT : REQUEST_CODE_GROUP_VIDEO_CHAT);
     }
@@ -851,5 +891,45 @@ public class ConversationFragment extends Fragment implements
                 WfcUIKit.singleCall(getActivity(), memberIds.get(0), isAudioOnly);
             }
         }
+    }
+
+    @Override
+    public void onMessageReceiptCLick(Message message) {
+        Map<String, Long> deliveries = adapter.getDeliveries();
+        Map<String, Long> readEntries = adapter.getReadEntries();
+        int deliveryCount = 0;
+        if (deliveries != null) {
+            for (Map.Entry<String, Long> delivery : deliveries.entrySet()) {
+                if (delivery.getValue() >= message.serverTime) {
+                    deliveryCount++;
+                }
+            }
+        }
+        int readCount = 0;
+        if (readEntries != null) {
+            for (Map.Entry<String, Long> readEntry : readEntries.entrySet()) {
+                if (readEntry.getValue() >= message.serverTime) {
+                    readCount++;
+                }
+            }
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("已送达人数：")
+            .append(deliveryCount)
+            .append("\n")
+            .append("未送达人数：")
+            .append(groupInfo.memberCount - 1 - deliveryCount)
+            .append("\n")
+            .append("已读人数：")
+            .append(readCount)
+            .append("\n")
+            .append("未读人数：")
+            .append(groupInfo.memberCount - 1 - readCount)
+        ;
+        new MaterialDialog.Builder(getActivity())
+            .title("消息回执")
+            .content(builder.toString())
+            .build()
+            .show();
     }
 }

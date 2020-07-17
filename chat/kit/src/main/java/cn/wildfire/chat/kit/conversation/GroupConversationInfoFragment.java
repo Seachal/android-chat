@@ -2,6 +2,7 @@ package cn.wildfire.chat.kit.conversation;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +22,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.afollestad.materialdialogs.MaterialDialog;
+import com.google.zxing.common.StringUtils;
 import com.kyleduo.switchbutton.SwitchButton;
 
 import java.util.ArrayList;
@@ -94,7 +96,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
     SwitchButton showGroupMemberNickNameSwitchButton;
 
     @BindView(R.id.quitButton)
-    Button quitGroupButton;
+    TextView quitGroupButton;
 
     @BindView(R.id.markGroupLinearLayout)
     LinearLayout markGroupLinearLayout;
@@ -182,7 +184,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
     }
 
     private void observerFavGroupsUpdate() {
-        groupViewModel.getMyGroups().observe(this, listOperateResult -> {
+        groupViewModel.getFavGroups().observe(this, listOperateResult -> {
             if (listOperateResult.isSuccess()) {
                 for (GroupInfo info : listOperateResult.getResult()) {
                     if (groupInfo.target.equals(info.target)) {
@@ -232,12 +234,16 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
                 if (getActivity() == null || getActivity().isFinishing()) {
                     return;
                 }
-                noticeTextView.setText(announcement.text);
+                if (TextUtils.isEmpty(announcement.text)) {
+                    noticeTextView.setVisibility(View.GONE);
+                } else {
+                    noticeTextView.setText(announcement.text);
+                }
             }
 
             @Override
             public void onUiFailure(int code, String msg) {
-
+                noticeTextView.setVisibility(View.GONE);
             }
         });
     }
@@ -352,10 +358,19 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
     @OnClick(R.id.myGroupNickNameOptionItemView)
     void updateMyGroupAlias() {
         MaterialDialog dialog = new MaterialDialog.Builder(getActivity())
-                .input("请输入你的群昵称", groupMember.alias, false, (dialog1, input) -> {
+                .input("请输入你的群昵称", groupMember.alias, true, (dialog1, input) -> {
+                    if (TextUtils.isEmpty(groupMember.alias)) {
+                        if (TextUtils.isEmpty(input.toString().trim())) {
+                            return;
+                        }
+                    } else if(groupMember.alias.equals(input.toString().trim())) {
+                        return;
+                    }
+                    
                     groupViewModel.modifyMyGroupAlias(groupInfo.target, input.toString().trim(), null, Collections.singletonList(0))
                             .observe(GroupConversationInfoFragment.this, operateResult -> {
                                 if (operateResult.isSuccess()) {
+                                    groupMember.alias = input.toString().trim();
                                     myGroupNickNameOptionItemView.setDesc(input.toString().trim());
                                 } else {
                                     Toast.makeText(getActivity(), "修改群昵称失败:" + operateResult.getErrorCode(), Toast.LENGTH_SHORT).show();
@@ -379,7 +394,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
                     Intent intent = new Intent(getActivity(), MainActivity.class);
                     startActivity(intent);
                 } else {
-                    Toast.makeText(getActivity(), "退出群组失败", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getActivity(), "解散群组失败", Toast.LENGTH_SHORT).show();
                 }
             });
         } else {

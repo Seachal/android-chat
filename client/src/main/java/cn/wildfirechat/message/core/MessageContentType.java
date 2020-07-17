@@ -20,12 +20,18 @@ public interface MessageContentType {
     int ContentType_P_Text = 9;
 
     int ContentType_Recall = 80;
+    //删除消息，请勿直接发送此消息，此消息是服务器端删除时的同步消息
+    int ContentType_Delete = 81;
 
     //提醒消息
     int ContentType_Tip_Notification = 90;
 
     //正在输入消息
     int ContentType_Typing = 91;
+    //以上是打招呼的内容
+    int ContentType_Friend_Greeting = 92;
+    //您已经添加XXX为好友了，可以愉快地聊天了
+    int ContentType_Friend_Added = 93;
 
     //通知消息类型
     int ContentType_General_Notification = 100;
@@ -46,6 +52,8 @@ public interface MessageContentType {
     int CONTENT_TYPE_CHANGE_PRIVATECHAT = 115;
     int CONTENT_TYPE_CHANGE_SEARCHABLE = 116;
     int CONTENT_TYPE_SET_MANAGER = 117;
+    //禁言/取消禁言群成员的通知消息
+    int CONTENT_TYPE_MUTE_MEMBER = 118;
 
     int ContentType_Call_Start = 400;
     int ContentType_Call_End = 402;
@@ -55,6 +63,9 @@ public interface MessageContentType {
     int ContentType_Call_Accept_T = 405;
     int ContentType_Call_Add_Participant = 406;
     int ContentType_CALL_MUTE_VIDEO = 407;
+
+    int MESSAGE_CONTENT_TYPE_FEED = 501;
+    int MESSAGE_CONTENT_TYPE_FEED_COMMENT = 502;
 
     //自定义消息type要做1000以上
 }

@@ -26,6 +26,7 @@ public class OptionItemView extends LinearLayout {
 
     private String title;
     private String desc;
+    private int badgeCount;
     private int dividerVisibility = VISIBLE;
 
     public OptionItemView(Context context) {
@@ -101,6 +102,7 @@ public class OptionItemView extends LinearLayout {
                     resId = typedArray.getResourceId(attr, 0);
                     if (resId != 0) {
                         endImageView.setImageResource(resId);
+                        endImageView.setVisibility(View.VISIBLE);
                     }
                     break;
                 case R.styleable.OptionItemView_show_arrow_indicator:
@@ -123,6 +125,16 @@ public class OptionItemView extends LinearLayout {
             layoutParams.leftMargin = dp2px(margin);
             dividerView.setLayoutParams(layoutParams);
             dividerView.invalidate();
+        }
+
+        if (!TextUtils.isEmpty(title)) {
+            titleTextView.setText(title);
+        }
+        if (!TextUtils.isEmpty(desc)) {
+            descTextView.setText(desc);
+        }
+        if (badgeCount > 0) {
+            badgeTextView.setText("" + badgeCount);
         }
     }
 
@@ -160,7 +172,15 @@ public class OptionItemView extends LinearLayout {
         }
     }
 
-    public int dp2px(int dip) {
+    public void setBadgeCount(int count) {
+        this.badgeCount = count;
+        if (badgeTextView != null) {
+            badgeTextView.setVisibility(count > 0 ? VISIBLE : GONE);
+            badgeTextView.setText(count + "");
+        }
+    }
+
+    private int dp2px(int dip) {
         float density = getContext().getResources().getDisplayMetrics().density;
         return (int) (dip * density + 0.5f);
     }

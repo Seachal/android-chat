@@ -147,7 +147,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
     }
 
     public void disableInput(String tip) {
-        collapse();
+        closeConversationInputPanel();
         inputContainerLinearLayout.setVisibility(GONE);
         disableInputTipTextView.setVisibility(VISIBLE);
         disableInputTipTextView.setText(tip);
@@ -416,6 +416,16 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
         editText.requestFocus();
     }
 
+    public void setInputText(String text) {
+        if (TextUtils.isEmpty(text)) {
+            return;
+        }
+        editText.setText(text);
+        editText.setSelection(text.length());
+        editText.requestFocus();
+        rootLinearLayout.showSoftkey(editText);
+    }
+
     public void onActivityPause() {
         Editable editable = editText.getText();
         if (TextUtils.isEmpty(editable.toString().trim())) {
@@ -489,7 +499,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
         }
     }
 
-    void collapse() {
+    void closeConversationInputPanel() {
         extension.reset();
         emotionImageView.setImageResource(R.mipmap.ic_cheat_emo);
         rootLinearLayout.hideAttachedInput(true);

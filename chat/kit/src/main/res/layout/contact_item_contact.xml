@@ -9,19 +9,19 @@
     <TextView
         android:id="@+id/categoryTextView"
         android:layout_width="match_parent"
-        android:layout_height="20dp"
-        android:background="#EFEFEF"
+        android:layout_height="30dp"
+        android:background="@color/gray5"
         android:gravity="center_vertical"
         android:paddingLeft="@dimen/item_margin_left_and_right"
         android:text="群主"
-        android:textColor="#989898"
-        android:textSize="12sp"
+        android:textColor="@color/gray12"
+        android:textSize="13sp"
         android:visibility="visible" />
 
     <LinearLayout
         android:id="@+id/contactLinearLayout"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="56dp"
         android:background="@drawable/selector_common_item"
         android:gravity="center_vertical"
         android:paddingLeft="@dimen/item_margin_left_and_right"
@@ -29,32 +29,32 @@
         android:paddingRight="@dimen/item_margin_left_and_right"
         android:paddingBottom="@dimen/item_margin_top_and_bottom">
 
-        <ImageView
-            android:id="@+id/portraitImageView"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/default_header" />
-
-        <TextView
-            android:id="@+id/nameTextView"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/item_margin_left_and_right"
-            android:layout_weight="1"
-            android:singleLine="true"
-            android:text="wfc"
-            android:textColor="@color/gray0"
-            android:textSize="16sp" />
-
         <CheckBox
             android:id="@+id/checkbox"
             style="@style/CustomCheckboxTheme"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginRight="@dimen/item_margin_left_and_right"
+            android:layout_marginRight="10dp"
             android:clickable="false"
             android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/portraitImageView"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:scaleType="centerCrop"
+            android:src="@mipmap/avatar_def" />
+
+        <TextView
+            android:id="@+id/nameTextView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="11dp"
+            android:layout_weight="1"
+            android:singleLine="true"
+            android:text="wfc"
+            android:textColor="@color/black1"
+            android:textSize="16sp" />
 
     </LinearLayout>
 

@@ -34,22 +34,33 @@ import cn.wildfirechat.message.VideoMessageContent;
 import cn.wildfirechat.message.core.MessageDirection;
 import cn.wildfirechat.message.core.MessageStatus;
 import cn.wildfirechat.model.Conversation;
+import cn.wildfirechat.model.ReadEntry;
 import cn.wildfirechat.remote.ChatManager;
 import cn.wildfirechat.remote.GeneralCallback;
 import cn.wildfirechat.remote.OnClearMessageListener;
+import cn.wildfirechat.remote.OnDeleteMessageListener;
+import cn.wildfirechat.remote.OnMessageDeliverListener;
+import cn.wildfirechat.remote.OnMessageReadListener;
 import cn.wildfirechat.remote.OnMessageUpdateListener;
 import cn.wildfirechat.remote.OnRecallMessageListener;
 import cn.wildfirechat.remote.OnReceiveMessageListener;
 import cn.wildfirechat.remote.OnSendMessageListener;
 
 public class MessageViewModel extends ViewModel implements OnReceiveMessageListener,
-        OnSendMessageListener,
-        OnRecallMessageListener, OnMessageUpdateListener, OnClearMessageListener {
+    OnSendMessageListener,
+    OnDeleteMessageListener,
+    OnRecallMessageListener,
+    OnMessageUpdateListener,
+    OnMessageDeliverListener,
+    OnMessageReadListener,
+    OnClearMessageListener {
     private MutableLiveData<UiMessage> messageLiveData;
     private MutableLiveData<UiMessage> messageUpdateLiveData;
     private MutableLiveData<UiMessage> messageRemovedLiveData;
     private MutableLiveData<Map<String, String>> mediaUploadedLiveData;
     private MutableLiveData<Object> clearMessageLiveData;
+    private MutableLiveData<Map<String, Long>> messageDeliverLiveData;
+    private MutableLiveData<List<ReadEntry>> messageReadLiveData;
 
     private Message toPlayAudioMessage;
 
@@ -59,6 +70,8 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
         ChatManager.Instance().addSendMessageListener(this);
         ChatManager.Instance().addOnMessageUpdateListener(this);
         ChatManager.Instance().addClearMessageListener(this);
+        ChatManager.Instance().addMessageDeliverListener(this);
+        ChatManager.Instance().addMessageReadListener(this);
     }
 
     @Override
@@ -68,6 +81,8 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
         ChatManager.Instance().removeSendMessageListener(this);
         ChatManager.Instance().removeOnMessageUpdateListener(this);
         ChatManager.Instance().removeClearMessageListener(this);
+        ChatManager.Instance().removeMessageDeliverListener(this);
+        ChatManager.Instance().removeMessageReadListener(this);
     }
 
     @Override
@@ -114,6 +129,21 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
         return clearMessageLiveData;
     }
 
+    public MutableLiveData<Map<String, Long>> messageDeliverLiveData() {
+        if (messageDeliverLiveData == null) {
+            messageDeliverLiveData = new MutableLiveData<>();
+        }
+        return messageDeliverLiveData;
+    }
+
+    public MutableLiveData<List<ReadEntry>> messageReadLiveData() {
+        if (messageReadLiveData == null) {
+            messageReadLiveData = new MutableLiveData<>();
+        }
+        return messageReadLiveData;
+    }
+
+
     @Override
     public void onRecallMessage(Message message) {
         if (message != null) {
@@ -144,6 +174,18 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
         });
     }
 
+    @Override
+    public void onDeleteMessage(Message message) {
+        if (messageRemovedLiveData != null) {
+            messageRemovedLiveData.setValue(new UiMessage(message));
+        }
+    }
+
+    /**
+     * 删除消息
+     *
+     * @param message
+     */
     public void deleteMessage(Message message) {
         if (messageRemovedLiveData != null) {
             messageRemovedLiveData.setValue(new UiMessage(message));
@@ -202,7 +244,6 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
     }
 
     public void sendTextMsg(Conversation conversation, TextMessageContent txtContent) {
-        txtContent.extra = "hello extra";
         sendMessage(conversation, txtContent);
         ChatManager.Instance().setConversationDraft(conversation, null);
     }
@@ -434,6 +475,20 @@ public class MessageViewModel extends ViewModel implements OnReceiveMessageListe
     public void onClearMessage(Conversation conversation) {
         if (clearMessageLiveData != null) {
             clearMessageLiveData.postValue(new Object());
+        }
+    }
+
+    @Override
+    public void onMessageDelivered(Map<String, Long> deliveries) {
+        if (messageDeliverLiveData != null) {
+            messageDeliverLiveData.postValue(deliveries);
+        }
+    }
+
+    @Override
+    public void onMessageRead(List<ReadEntry> readEntries) {
+        if (messageReadLiveData != null) {
+            messageReadLiveData.postValue(readEntries);
         }
     }
 }

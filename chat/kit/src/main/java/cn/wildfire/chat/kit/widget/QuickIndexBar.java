@@ -16,7 +16,7 @@ import cn.wildfirechat.chat.R;
 public class QuickIndexBar extends View {
 
     private Paint mPaint;
-    private float mTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 14, getResources().getDisplayMetrics());
+    private float mTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 13, getResources().getDisplayMetrics());
     private static final String[] LETTERS = new String[]{
             "↑", "☆", "A", "B", "C", "D", "E", "F", "G", "H",
             "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
@@ -100,19 +100,8 @@ public class QuickIndexBar extends View {
         int index = -1;
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                index = (int) (event.getY() / mCellHeight);//   y值/每个单元格的高度 = 当前单元格的索引
-                if (index >= 0 && index < LETTERS.length) {
-                    if (index != mTouchIndex) {
-                        if (mListener != null) {
-                            mListener.onLetterUpdate(LETTERS[index]);
-                            mTouchIndex = index;
-                        }
-                    }
-                }
-                setBackgroundColor(getResources().getColor(R.color.side_bar_pressed));
-                break;
             case MotionEvent.ACTION_MOVE:
-                index = (int) (event.getY() / mCellHeight);
+                index = (int) (event.getY() / mCellHeight);//   y值/每个单元格的高度 = 当前单元格的索引
                 if (index >= 0 && index < LETTERS.length) {
                     if (index != mTouchIndex) {
                         if (mListener != null) {

@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import cn.wildfire.chat.kit.annotation.EnableContextMenu;
 import cn.wildfire.chat.kit.annotation.LayoutRes;
@@ -35,7 +36,6 @@ import cn.wildfire.chat.kit.conversation.message.viewholder.MessageContentViewHo
 import cn.wildfire.chat.kit.conversation.message.viewholder.MessageViewHolderManager;
 import cn.wildfire.chat.kit.conversation.message.viewholder.NormalMessageContentViewHolder;
 import cn.wildfire.chat.kit.conversation.message.viewholder.NotificationMessageContentViewHolder;
-import cn.wildfire.chat.kit.conversation.message.viewholder.SimpleNotificationMessageContentViewHolder;
 import cn.wildfirechat.chat.R;
 import cn.wildfirechat.message.Message;
 import cn.wildfirechat.model.UserInfo;
@@ -50,9 +50,12 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
     // check or normal
     private int mode;
     private List<UiMessage> messages = new ArrayList<>();
+    private Map<String, Long> deliveries;
+    private Map<String, Long> readEntries;
     private OnPortraitClickListener onPortraitClickListener;
     private OnMessageCheckListener onMessageCheckListener;
     private OnPortraitLongClickListener onPortraitLongClickListener;
+    private OnMessageReceiptClickListener onMessageReceiptClickListener;
 
     public ConversationMessageAdapter(ConversationFragment fragment) {
         super();
@@ -99,6 +102,26 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
         }
     }
 
+    public void setDeliveries(Map<String, Long> deliveries) {
+        // TODO diff
+        this.deliveries = deliveries;
+        notifyDataSetChanged();
+    }
+
+    public void setReadEntries(Map<String, Long> readEntries) {
+        // TODO diff
+        this.readEntries = readEntries;
+        notifyDataSetChanged();
+    }
+
+    public Map<String, Long> getDeliveries() {
+        return deliveries;
+    }
+
+    public Map<String, Long> getReadEntries() {
+        return readEntries;
+    }
+
     public void setOnPortraitClickListener(OnPortraitClickListener onPortraitClickListener) {
         this.onPortraitClickListener = onPortraitClickListener;
     }
@@ -109,6 +132,10 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
 
     public void setOnPortraitLongClickListener(OnPortraitLongClickListener onPortraitLongClickListener) {
         this.onPortraitLongClickListener = onPortraitLongClickListener;
+    }
+
+    public void setOnMessageReceiptClickListener(OnMessageReceiptClickListener onMessageReceiptClickListener) {
+        this.onMessageReceiptClickListener = onMessageReceiptClickListener;
     }
 
     public void addNewMessage(UiMessage message) {
@@ -143,15 +170,15 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
     public void updateMessage(UiMessage message) {
         int index = -1;
         for (int i = messages.size() - 1; i >= 0; i--) {
-            if (message.message.messageId > 0) {
-                if (messages.get(i).message.messageId == message.message.messageId) {
+            if (message.message.messageUid > 0) {
+                // 聊天室消息收到的消息
+                if (messages.get(i).message.messageUid == message.message.messageUid) {
                     messages.set(i, message);
                     index = i;
                     break;
                 }
-            } else if (message.message.messageUid > 0) {
-                // 聊天室消息收到的消息
-                if (messages.get(i).message.messageUid == message.message.messageUid) {
+            }else if (message.message.messageId > 0) {
+                if (messages.get(i).message.messageId == message.message.messageId) {
                     messages.set(i, message);
                     index = i;
                     break;
@@ -171,10 +198,19 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
         int position = -1;
         for (int i = 0; i < messages.size(); i++) {
             msg = messages.get(i);
-            if (msg.equals(message)) {
-                messages.remove(msg);
-                position = i;
-                break;
+
+            if (msg.message.messageUid > 0 || message.message.messageUid > 0) {
+                if (msg.message.messageUid == message.message.messageUid) {
+                    messages.remove(msg);
+                    position = i;
+                    break;
+                }
+            } else {
+                if (msg.message.messageId == message.message.messageId) {
+                    messages.remove(msg);
+                    position = i;
+                    break;
+                }
             }
         }
         if (position >= 0) {
@@ -249,15 +285,8 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
         try {
             Constructor constructor = viewHolderClazz.getConstructor(ConversationFragment.class, RecyclerView.Adapter.class, View.class);
             MessageContentViewHolder viewHolder = (MessageContentViewHolder) constructor.newInstance(fragment, this, itemView);
-            if (viewHolder instanceof SimpleNotificationMessageContentViewHolder) {
+            if (viewHolder instanceof NotificationMessageContentViewHolder) {
                 return viewHolder;
-            }
-
-            processCheckClick(viewHolder, itemView);
-            processContentLongClick(viewHolderClazz, viewHolder, itemView);
-            if (viewHolder instanceof NormalMessageContentViewHolder) {
-                processPortraitClick(viewHolder, itemView);
-                processPortraitLongClick(viewHolder, itemView);
             }
             return viewHolder;
         } catch (NoSuchMethodException e) {
@@ -304,6 +333,12 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
         });
     }
 
+    public void onGroupMessageReceiptClick(Message message) {
+        if (onMessageReceiptClickListener != null) {
+            onMessageReceiptClickListener.onMessageReceiptCLick(message);
+        }
+    }
+
     private void processCheckClick(MessageContentViewHolder holder, View itemView) {
         itemView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -323,14 +358,14 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
 
     private void processPortraitLongClick(MessageContentViewHolder viewHolder, View itemView) {
         itemView.findViewById(R.id.portraitImageView).setOnLongClickListener(v -> {
-                    if (onPortraitLongClickListener != null) {
-                        int position = viewHolder.getAdapterPosition();
-                        UiMessage message = getItem(position);
-                        onPortraitLongClickListener.onPortraitLongClick(ChatManager.Instance().getUserInfo(message.message.sender, false));
-                        return true;
-                    }
-                    return false;
+                if (onPortraitLongClickListener != null) {
+                    int position = viewHolder.getAdapterPosition();
+                    UiMessage message = getItem(position);
+                    onPortraitLongClickListener.onPortraitLongClick(ChatManager.Instance().getUserInfo(message.message.sender, false));
+                    return true;
                 }
+                return false;
+            }
         );
     }
 
@@ -408,23 +443,23 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
                                     content = menuItem.contextMenuItem.confirmPrompt();
                                 }
                                 new MaterialDialog.Builder(fragment.getContext())
-                                        .content(content)
-                                        .negativeText("取消")
-                                        .positiveText("确认")
-                                        .onPositive(new MaterialDialog.SingleButtonCallback() {
-                                            @Override
-                                            public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
-                                                try {
-                                                    menuItem.method.invoke(viewHolder, itemView, message);
-                                                } catch (IllegalAccessException e) {
-                                                    e.printStackTrace();
-                                                } catch (InvocationTargetException e) {
-                                                    e.printStackTrace();
-                                                }
+                                    .content(content)
+                                    .negativeText("取消")
+                                    .positiveText("确认")
+                                    .onPositive(new MaterialDialog.SingleButtonCallback() {
+                                        @Override
+                                        public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
+                                            try {
+                                                menuItem.method.invoke(viewHolder, itemView, message);
+                                            } catch (IllegalAccessException e) {
+                                                e.printStackTrace();
+                                            } catch (InvocationTargetException e) {
+                                                e.printStackTrace();
                                             }
-                                        })
-                                        .build()
-                                        .show();
+                                        }
+                                    })
+                                    .build()
+                                    .show();
 
                             } else {
                                 contextMenus.get(position).method.invoke(viewHolder, itemView, message);
@@ -448,6 +483,7 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof MessageContentViewHolder) {
+            MessageContentViewHolder viewHolder = (MessageContentViewHolder) holder;
             ((MessageContentViewHolder) holder).onBind(getItem(position), position);
             MessageItemView itemView = (MessageItemView) holder.itemView;
             CheckBox checkBox = itemView.findViewById(R.id.checkbox);
@@ -461,6 +497,16 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
                 checkBox.setChecked(message.isChecked);
             } else {
                 checkBox.setVisibility(View.GONE);
+            }
+
+            if (getMode() == MODE_CHECKABLE) {
+                processCheckClick(viewHolder, itemView);
+            } else {
+                processContentLongClick(viewHolder.getClass(), viewHolder, itemView);
+                if (holder instanceof NormalMessageContentViewHolder) {
+                    processPortraitClick(viewHolder, itemView);
+                    processPortraitLongClick(viewHolder, itemView);
+                }
             }
         } else {
             // bottom loading progress bar, do nothing
@@ -553,5 +599,9 @@ public class ConversationMessageAdapter extends RecyclerView.Adapter<RecyclerVie
 
     public interface OnMessageCheckListener {
         void onMessageCheck(UiMessage uiMessage, boolean checked);
+    }
+
+    public interface OnMessageReceiptClickListener {
+        void onMessageReceiptCLick(Message message);
     }
 }

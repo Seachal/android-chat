@@ -1,9 +1,11 @@
 package cn.wildfire.chat.kit.contact.pick;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.lifecycle.Observer;
@@ -24,6 +26,7 @@ public class PickContactActivity extends WfcBaseActivity {
     public static final String RESULT_PICKED_USERS = "pickedUsers";
 
     private MenuItem menuItem;
+    private TextView confirmTv;
 
     private PickUserViewModel pickUserViewModel;
     private Observer<UIUserInfo> contactCheckStatusUpdateLiveDataObserver = new Observer<UIUserInfo>() {
@@ -36,10 +39,10 @@ public class PickContactActivity extends WfcBaseActivity {
 
     protected void updatePickStatus(List<UIUserInfo> userInfos) {
         if (userInfos == null || userInfos.isEmpty()) {
-            menuItem.setTitle("确定");
+            confirmTv.setText("确定");
             menuItem.setEnabled(false);
         } else {
-            menuItem.setTitle("确定(" + userInfos.size() + ")");
+            confirmTv.setText("确定(" + userInfos.size() + ")");
             menuItem.setEnabled(true);
         }
     }
@@ -74,6 +77,13 @@ public class PickContactActivity extends WfcBaseActivity {
     protected void afterMenus(Menu menu) {
         menuItem = menu.findItem(R.id.confirm);
         menuItem.setEnabled(false);
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        confirmTv = menuItem.getActionView().findViewById(R.id.confirm_tv);
+        confirmTv.setOnClickListener(v -> onOptionsItemSelected(menuItem));
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -114,8 +124,8 @@ public class PickContactActivity extends WfcBaseActivity {
         onContactPicked(newlyCheckedUserInfos);
     }
 
-    public static Intent buildPickIntent(int maxCount, ArrayList<String> initialChecedIds, ArrayList<String> uncheckableIds) {
-        Intent intent = new Intent();
+    public static Intent buildPickIntent(Context context, int maxCount, ArrayList<String> initialChecedIds, ArrayList<String> uncheckableIds) {
+        Intent intent = new Intent(context, PickContactActivity.class);
         intent.putExtra(PARAM_MAX_COUNT, maxCount);
         intent.putExtra(PARAM_INITIAL_CHECKED_IDS, initialChecedIds);
         intent.putExtra(PARA_UNCHECKABLE_IDS, uncheckableIds);

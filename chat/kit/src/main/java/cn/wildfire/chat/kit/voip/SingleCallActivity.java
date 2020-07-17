@@ -31,18 +31,11 @@ public class SingleCallActivity extends VoipBaseActivity {
 
     public static final String EXTRA_FROM_FLOATING_VIEW = "fromFloatingView";
 
-    private boolean isFromFloatingView;
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         final Intent intent = getIntent();
 
-        isFromFloatingView = intent.getBooleanExtra(EXTRA_FROM_FLOATING_VIEW, false);
-        if (isFromFloatingView) {
-            Intent serviceIntent = new Intent(this, SingleCallFloatingService.class);
-            stopService(serviceIntent);
-        }
         init();
     }
 
@@ -51,10 +44,8 @@ public class SingleCallActivity extends VoipBaseActivity {
     private void init() {
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
         if (session == null || AVEngineKit.CallState.Idle == session.getState()) {
-            finish();
+            finishFadeout();
             return;
-        } else {
-            session.setCallback(SingleCallActivity.this);
         }
 
         Fragment fragment;
@@ -67,8 +58,8 @@ public class SingleCallActivity extends VoipBaseActivity {
         currentCallback = (AVEngineKit.CallSessionCallback) fragment;
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.beginTransaction()
-                .add(android.R.id.content, fragment)
-                .commit();
+            .add(android.R.id.content, fragment)
+            .commit();
     }
 
     // Activity interfaces
@@ -122,9 +113,9 @@ public class SingleCallActivity extends VoipBaseActivity {
                 SingleAudioFragment fragment = new SingleAudioFragment();
                 FragmentManager fragmentManager = getSupportFragmentManager();
                 fragmentManager.beginTransaction()
-                        .replace(android.R.id.content, fragment)
-                        .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
-                        .commit();
+                    .replace(android.R.id.content, fragment)
+                    .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
+                    .commit();
                 currentCallback = fragment;
             } else {
                 // never called
@@ -148,13 +139,21 @@ public class SingleCallActivity extends VoipBaseActivity {
         postAction(() -> currentCallback.didReceiveRemoteVideoTrack(s));
     }
 
+    @Override
+    public void didReportAudioVolume(String userId, int volume) {
+        postAction(() -> currentCallback.didReportAudioVolume(userId, volume));
+    }
+
     public void audioAccept() {
+        if (currentCallback instanceof SingleAudioFragment) {
+            return;
+        }
         SingleAudioFragment fragment = new SingleAudioFragment();
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.beginTransaction()
-                .replace(android.R.id.content, fragment)
-                .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
-                .commit();
+            .replace(android.R.id.content, fragment)
+            .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
+            .commit();
         currentCallback = fragment;
 
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
@@ -165,7 +164,7 @@ public class SingleCallActivity extends VoipBaseActivity {
                 session.setAudioOnly(true);
             }
         } else {
-            finish();
+            finishFadeout();
         }
     }
 
@@ -173,14 +172,4 @@ public class SingleCallActivity extends VoipBaseActivity {
         audioAccept();
     }
 
-    public void showFloatingView() {
-
-        if (!checkOverlayPermission()) {
-            return;
-        }
-
-        Intent intent = new Intent(this, SingleCallFloatingService.class);
-        startService(intent);
-        finish();
-    }
 }

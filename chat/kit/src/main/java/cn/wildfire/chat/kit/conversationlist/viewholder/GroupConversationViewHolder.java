@@ -1,5 +1,6 @@
 package cn.wildfire.chat.kit.conversationlist.viewholder;
 
+import android.text.TextUtils;
 import android.view.View;
 
 import com.bumptech.glide.load.resource.bitmap.CenterCrop;
@@ -11,6 +12,8 @@ import cn.wildfire.chat.kit.ChatManagerHolder;
 import cn.wildfire.chat.kit.GlideApp;
 import cn.wildfire.chat.kit.annotation.ConversationInfoType;
 import cn.wildfire.chat.kit.annotation.EnableContextMenu;
+import cn.wildfire.chat.kit.third.utils.ImageUtils;
+import cn.wildfire.chat.kit.third.utils.UIUtils;
 import cn.wildfirechat.chat.R;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.model.ConversationInfo;
@@ -33,14 +36,19 @@ public class GroupConversationViewHolder extends ConversationViewHolder {
             name = groupInfo.name;
             portrait = groupInfo.portrait;
         } else {
-            name = "Group<" + conversationInfo.conversation.target + ">";
+            name = "群聊";
             portrait = null;
         }
+
+        if (TextUtils.isEmpty(portrait)) {
+            portrait = ImageUtils.getGroupGridPortrait(getFragment().getContext(), conversationInfo.conversation.target, 60);
+        }
+
         GlideApp
                 .with(fragment)
                 .load(portrait)
-                .placeholder(R.mipmap.ic_group_cheat)
-                .transforms(new CenterCrop(), new RoundedCorners(10))
+                .placeholder(UIUtils.getRoundedDrawable(R.mipmap.ic_group_cheat, 4))
+                .transforms(new CenterCrop(), new RoundedCorners(UIUtils.dip2Px(4)))
                 .into(portraitImageView);
         nameTextView.setText(name);
     }

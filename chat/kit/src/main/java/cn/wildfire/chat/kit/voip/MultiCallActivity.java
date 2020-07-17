@@ -16,6 +16,7 @@ import java.util.List;
 import cn.wildfire.chat.kit.group.GroupViewModel;
 import cn.wildfire.chat.kit.group.PickGroupMemberActivity;
 import cn.wildfirechat.avenginekit.AVEngineKit;
+import cn.wildfirechat.avenginekit.VideoProfile;
 import cn.wildfirechat.model.GroupInfo;
 import cn.wildfirechat.remote.ChatManager;
 
@@ -25,44 +26,34 @@ public class MultiCallActivity extends VoipBaseActivity {
     private String groupId;
     private AVEngineKit.CallSessionCallback currentCallSessionCallback;
 
-    private boolean isAddParticipant = false;
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         init();
     }
 
-    public void setAddParticipant(boolean addParticipant) {
-        isAddParticipant = addParticipant;
-    }
-
     @Override
     protected void onStop() {
         super.onStop();
-        AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
-        if (session != null && session.getState() != AVEngineKit.CallState.Idle && !isAddParticipant) {
-            showFloatingView();
-        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        hideFloatingView();
     }
 
     private void init() {
         AVEngineKit.CallSession session = getEngineKit().getCurrentSession();
-        if (session == null) {
+        if (session == null || session.getState() == AVEngineKit.CallState.Idle) {
             finish();
             return;
         }
-        session.setCallback(this);
         groupId = session.getConversation().target;
 
         Fragment fragment;
-        if (session.isAudioOnly()) {
+        if (session.getState() == AVEngineKit.CallState.Incoming) {
+            fragment = new MultiCallIncomingFragment();
+        } else if (session.isAudioOnly()) {
             fragment = new MultiCallAudioFragment();
         } else {
             fragment = new MultiCallVideoFragment();
@@ -71,8 +62,8 @@ public class MultiCallActivity extends VoipBaseActivity {
         currentCallSessionCallback = (AVEngineKit.CallSessionCallback) fragment;
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.beginTransaction()
-                .add(android.R.id.content, fragment)
-                .commit();
+            .add(android.R.id.content, fragment)
+            .commit();
     }
 
 
@@ -109,6 +100,13 @@ public class MultiCallActivity extends VoipBaseActivity {
     }
 
     @Override
+    public void didReportAudioVolume(String userId, int volume) {
+        postAction(() -> {
+            currentCallSessionCallback.didReportAudioVolume(userId, volume);
+        });
+    }
+
+    @Override
     public void didChangeMode(boolean audioOnly) {
         postAction(() -> {
             if (audioOnly) {
@@ -116,12 +114,17 @@ public class MultiCallActivity extends VoipBaseActivity {
                 currentCallSessionCallback = (AVEngineKit.CallSessionCallback) fragment;
                 FragmentManager fragmentManager = getSupportFragmentManager();
                 fragmentManager.beginTransaction()
-                        .replace(android.R.id.content, fragment)
-                        .commit();
+                    .replace(android.R.id.content, fragment)
+                    .commit();
             } else {
                 // never called
             }
         });
+    }
+
+    //@Override
+    public void didChangeInitiator(String initiator) {
+
     }
 
     @Override
@@ -159,28 +162,49 @@ public class MultiCallActivity extends VoipBaseActivity {
         });
     }
 
+    void hangup() {
+        AVEngineKit.CallSession session = getEngineKit().getCurrentSession();
+        if (session != null && session.getState() != AVEngineKit.CallState.Idle) {
+            session.endCall();
+        }
+        finish();
+    }
+
+    void accept() {
+        AVEngineKit.CallSession session = getEngineKit().getCurrentSession();
+        if (session == null || session.getState() == AVEngineKit.CallState.Idle) {
+            finish();
+            return;
+        }
+
+        Fragment fragment;
+        if (session.isAudioOnly()) {
+            fragment = new MultiCallAudioFragment();
+        } else {
+            fragment = new MultiCallVideoFragment();
+            List<String> participants = session.getParticipantIds();
+            if (participants.size() >= 4) {
+                AVEngineKit.Instance().setVideoProfile(VideoProfile.VP120P, false);
+            } else if (participants.size() >= 6) {
+                AVEngineKit.Instance().setVideoProfile(VideoProfile.VP120P_3, false);
+            }
+        }
+        currentCallSessionCallback = (AVEngineKit.CallSessionCallback) fragment;
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        fragmentManager.beginTransaction()
+            .replace(android.R.id.content, fragment)
+            .commit();
+
+        session.answerCall(session.isAudioOnly());
+    }
+
     @Override
     public void didVideoMuted(String s, boolean b) {
         postAction(() -> currentCallSessionCallback.didVideoMuted(s, b));
     }
 
-    public void showFloatingView() {
-        if (!checkOverlayPermission()) {
-            return;
-        }
-
-        Intent intent = new Intent(this, MultiCallFloatingService.class);
-        startService(intent);
-        finish();
-    }
-
-    public void hideFloatingView() {
-        Intent intent = new Intent(this, MultiCallFloatingService.class);
-        stopService(intent);
-    }
-
-    void addParticipant() {
-        isAddParticipant = true;
+    void addParticipant(int maxNewInviteParticipantCount) {
+        isInvitingNewParticipant = true;
         Intent intent = new Intent(this, PickGroupMemberActivity.class);
         GroupViewModel groupViewModel = ViewModelProviders.of(this).get(GroupViewModel.class);
         GroupInfo groupInfo = groupViewModel.getGroupInfo(groupId, false);
@@ -189,7 +213,7 @@ public class MultiCallActivity extends VoipBaseActivity {
         participants.add(ChatManager.Instance().getUserId());
         intent.putStringArrayListExtra(PickGroupMemberActivity.CHECKED_MEMBER_IDS, (ArrayList<String>) participants);
         intent.putStringArrayListExtra(PickGroupMemberActivity.UNCHECKABLE_MEMBER_IDS, (ArrayList<String>) participants);
-        intent.putExtra(PickGroupMemberActivity.MAX_COUNT, 9);
+        intent.putExtra(PickGroupMemberActivity.MAX_COUNT, maxNewInviteParticipantCount);
         startActivityForResult(intent, REQUEST_CODE_ADD_PARTICIPANT);
     }
 
@@ -197,7 +221,7 @@ public class MultiCallActivity extends VoipBaseActivity {
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_CODE_ADD_PARTICIPANT) {
-            isAddParticipant = false;
+            isInvitingNewParticipant = false;
             if (resultCode == RESULT_OK) {
                 List<String> newParticipants = data.getStringArrayListExtra(PickGroupMemberActivity.EXTRA_RESULT);
                 if (newParticipants != null && !newParticipants.isEmpty()) {

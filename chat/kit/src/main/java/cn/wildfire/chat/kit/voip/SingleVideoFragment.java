@@ -1,5 +1,7 @@
 package cn.wildfire.chat.kit.voip;
 
+import android.content.Context;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -36,8 +38,6 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
     FrameLayout pipRenderer;
     @BindView(R.id.fullscreen_video_view)
     FrameLayout fullscreenRenderer;
-    @BindView(R.id.minimizeImageView)
-    ImageView minimizeImageView;
     @BindView(R.id.outgoingActionContainer)
     ViewGroup outgoingActionContainer;
     @BindView(R.id.incomingActionContainer)
@@ -101,14 +101,19 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
             outgoingActionContainer.setVisibility(View.GONE);
             connectedActionContainer.setVisibility(View.VISIBLE);
             inviteeInfoContainer.setVisibility(View.GONE);
-            minimizeImageView.setVisibility(View.VISIBLE);
-        } else {
-            // do nothing now
+        } else if (state == AVEngineKit.CallState.Idle) {
+            getActivity().finish();
+            getActivity().overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         }
     }
 
     @Override
     public void didParticipantJoined(String s) {
+
+    }
+
+    @Override
+    public void didParticipantConnected(String userId) {
 
     }
 
@@ -179,13 +184,26 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
 
     }
 
+    @Override
+    public void didReportAudioVolume(String userId, int volume) {
+        Log.d(TAG, "voip audio " + userId + " " + volume);
+    }
+
     @OnClick(R.id.acceptImageView)
     public void accept() {
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
-        if (session != null && session.getState() == AVEngineKit.CallState.Incoming) {
+        if (session == null) {
+            if (getActivity() != null && !getActivity().isFinishing()) {
+                getActivity().finish();
+                getActivity().overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            }
+            return;
+        }
+        if (session.getState() == AVEngineKit.CallState.Incoming) {
             session.answerCall(false);
-        } else {
-            getActivity().finish();
+            AudioManager audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.setSpeakerphoneOn(true);
         }
     }
 
@@ -201,14 +219,15 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
 
     // callFragment.OnCallEvents interface implementation.
     @OnClick({R.id.connectedHangupImageView,
-            R.id.outgoingHangupImageView,
-            R.id.incomingHangupImageView})
+        R.id.outgoingHangupImageView,
+        R.id.incomingHangupImageView})
     public void hangUp() {
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
         if (session != null) {
             session.endCall();
         } else {
             getActivity().finish();
+            getActivity().overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         }
     }
 
@@ -253,9 +272,7 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
     @OnClick(R.id.minimizeImageView)
     public void minimize() {
         gEngineKit.getCurrentSession().stopVideoSource();
-        gEngineKit.getCurrentSession().setupLocalVideo(null, scalingType);
-        gEngineKit.getCurrentSession().setupRemoteVideo(targetId, null, scalingType);
-        ((SingleCallActivity) getActivity()).showFloatingView();
+        ((SingleCallActivity) getActivity()).showFloatingView(null);
     }
 
     // Log |msg| and Toast about it.
@@ -284,12 +301,12 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
         if (session == null || AVEngineKit.CallState.Idle == session.getState()) {
             getActivity().finish();
+            getActivity().overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         } else if (AVEngineKit.CallState.Connected == session.getState()) {
             incomingActionContainer.setVisibility(View.GONE);
             outgoingActionContainer.setVisibility(View.GONE);
             connectedActionContainer.setVisibility(View.VISIBLE);
             inviteeInfoContainer.setVisibility(View.GONE);
-            minimizeImageView.setVisibility(View.VISIBLE);
 
             targetId = session.getParticipantIds().get(0);
 
@@ -304,8 +321,11 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
                 outgoingActionContainer.setVisibility(View.VISIBLE);
                 connectedActionContainer.setVisibility(View.GONE);
                 descTextView.setText(R.string.av_waiting);
-
-                gEngineKit.getCurrentSession().startPreview();
+                if (session.isLocalVideoCreated()) {
+                    didCreateLocalVideoTrack();
+                } else {
+                    gEngineKit.getCurrentSession().startPreview();
+                }
             } else {
                 incomingActionContainer.setVisibility(View.VISIBLE);
                 outgoingActionContainer.setVisibility(View.GONE);
@@ -317,9 +337,10 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
         UserInfo userInfo = userViewModel.getUserInfo(targetId, false);
         if (userInfo == null) {
             getActivity().finish();
+            getActivity().overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             return;
         }
-        GlideApp.with(this).load(userInfo.portrait).error(R.mipmap.default_header).into(portraitImageView);
+        GlideApp.with(this).load(userInfo.portrait).placeholder(R.mipmap.avatar_def).into(portraitImageView);
         nameTextView.setText(userViewModel.getUserDisplayName(userInfo));
 
         updateCallDuration();
@@ -330,7 +351,7 @@ public class SingleVideoFragment extends Fragment implements AVEngineKit.CallSes
     private void updateCallDuration() {
         AVEngineKit.CallSession session = gEngineKit.getCurrentSession();
         if (session != null && session.getState() == AVEngineKit.CallState.Connected) {
-            long s = System.currentTimeMillis() - session.getStartTime();
+            long s = System.currentTimeMillis() - session.getConnectedTime();
             s = s / 1000;
             String text;
             if (s > 3600) {

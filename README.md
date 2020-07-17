@@ -2,8 +2,7 @@
 
 ## 特别注意
 
-1. ```com.android.tools.build:gradle:3.5.0``` 可能存在bug，会导致音视频crash，请勿升级到次版本，若已升级到此版本，请降级到```3.4.2```，对应gradle版本为```5.1.1```
-2. 待修复这问题之后，野火IM会升级所使用的```gradle```和```Android Gradle plugin```的版本
+1. ```com.android.tools.build:gradle:3.5.0``` 可能存在bug，会导致音视频crash，请勿升级到此版本
 
 野火IM是一套跨平台、核心功能开源的即时通讯解决方案，主要包含以下内容。
 
@@ -34,9 +33,13 @@
 
 ## 二次开发说明
 
-野火IM采用bugly作为日志手机工具，大家二次开发时，务必将```MyApp.java```中的 ```bugly id``` 替换为你们自己的，否则错误日志都跑我们这儿来了，你们收集不到错误日志，我们也会收到干扰。
+野火IM采用bugly作为日志手机工具，大家二次开发时，务必将```MyApp.java```中的 ```bugly id``` 替换为你们自己的，否则错误日志都跑我们这儿来了，你们收集不到错误日志，我们也会受到干扰。
 
 另外，如果可以请告知我们，我们会在案例参考把项目加上。
+
+## 混淆说明
+1. 确保所依赖的```lifecycle```版本在2.2.0或以上。
+2. 参考```chat/proguard-rules.pro```进行配置。
 
 ### 联系我们
 
@@ -59,12 +62,6 @@
 我们提供了体验demo，请使用微信扫码下载安装体验
 
 ![野火IM](http://static.wildfirechat.cn/download_qrcode.png)
-
-#### 加入野火官方体验交流群
-使用野火IM移动客户端扫码下面二维码（不是使用微信扫码），和野火IM的爱好者一起畅谈野火IM的问题和经验：
-
-![野火IM官方交流群](http://static.wildfirechat.cn/wildfirechat_official_group.jpeg)
-
 
 ## 应用截图
 ![ios-demo1](http://static.wildfirechat.cn/android-deomo1.gif)
@@ -93,8 +90,6 @@
 
 <img src="http://static.wildfirechat.cn/android-view11.png" width = 50% height = 50% />
 
-## 协议栈的编译
-工程中已经包括了编译好的协议栈，你也可以自己编译[协议栈](https://github.com/wildfirechat/proto)，编译方法请参考协议栈工程。
 
 ## 集成
 1. client部分，自行下载代码，并将client module引入你们自己的项目。
